@@ -1,0 +1,52 @@
+---
+title: "Analysis of Prosper loan data from Q4 2005 to Q1 2014"
+output: html_document
+---
+
+Let's load the data and get an idea about its variables.
+
+```{r}
+loans <- read.csv("prosperLoanData.csv")
+str(loans)
+```
+
+There are approximately 100K records with 81 variables. 
+
+That's a lot of variables! Even with the variable definitions it's hard to keep
+track of everything that's going on. Let's plot some data to start getting a 
+handle on this data.
+
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+# The origination quarter is in format "QX YYYY" which is hard to order so let's
+# swap the order of the values.
+loans.quarter_split <- separate(loans, 
+         col = "LoanOriginationQuarter", 
+         into = c("LoanOriginationQuarterOfYear", "LoanOriginationYear"))
+loans$LoanOriginationQuarterSwapped = factor(paste(
+  loans.quarter_split$LoanOriginationYear, loans.quarter_split$LoanOriginationQuarterOfYear))
+
+loans.originations_by_quarter <- loans %>%
+  group_by(LoanOriginationQuarterSwapped) %>%
+  summarize(NumLoansOriginated = n()) %>%
+  arrange(LoanOriginationQuarterSwapped)
+
+ggplot(loans.originations_by_quarter, aes(LoanOriginationQuarterSwapped, NumLoansOriginated, group = "c")) +
+  geom_point() + geom_line()
+```
+
+The earliest loans are from 2005-2006, when Prosper was founded and went public.
+There's a drop after Q2 2008 (approaching nearly 0 in Q2 2009), likely because 
+of the recession. 
+
+The loans started picking up again after that and gradually
+increased until the number of originated loans per quarter surpassed 5000, after 
+which there was a drop in Q4 2012 and Q1 2013 after which loans started picking 
+up again at an even greater rate. 
+
+It would be interesting to see if we could later try to understand the drop and
+the subsequent increased growth.

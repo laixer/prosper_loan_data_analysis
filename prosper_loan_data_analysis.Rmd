@@ -77,3 +77,45 @@ Grouped by months, the picture doesn't look much different than before.
 We can tell that the trough in 2013 happed in February. We also see a steep drop
 off in March 2014 but it's possible that this data set is not complete for March
 2014 as it's the last month in the data set.
+
+What happens if we break down the loans by state? 
+```{r}
+loans.originations_by_month_state <- loans %>%
+  group_by(LoanOriginationMonth, BorrowerState) %>%
+  summarize(NumLoansOriginated = n()) %>%
+  ungroup() %>%
+  arrange(LoanOriginationMonth)
+
+ggplot(loans.originations_by_month_state, aes(LoanOriginationMonth, 
+                                        NumLoansOriginated, 
+                                        fill = BorrowerState)) +
+  geom_bar(stat = "identity") + 
+  scale_x_datetime(labels = date_format("%b %Y"), breaks = date_breaks("3 months")) +
+  theme(axis.text.x=element_text(angle=-90,vjust=0.5))
+```
+
+As expected, this graph is a bit hard to read due to the number of states, but 
+it appears that most of the loans are concentrated in a small number of states
+so we can try looking at only some of the states. Before we do that, we can 
+facet this data by state.
+
+```{r}
+ggplot(loans.originations_by_month_state, aes(LoanOriginationMonth, 
+                                              NumLoansOriginated)) +
+  facet_wrap(~BorrowerState) +
+  geom_point() + 
+  geom_line() +
+  scale_x_datetime(labels = date_format("%b %Y"), breaks = date_breaks("3 months")) +
+  theme(axis.text.x=element_text(angle=-90,vjust=0.5))
+```
+
+The trends in number of originated loans look similar, but we can see that in 
+many states number of originated loans is pretty low. There's also a number of
+loans with no state for the earlier data.
+
+```{r}
+loans.originations_by_state <- loans %>%
+  group_by(BorrowerState) %>%
+  summarize(NumLoansOriginated = n()) %>%
+  arrange(NumLoansOriginated)
+```

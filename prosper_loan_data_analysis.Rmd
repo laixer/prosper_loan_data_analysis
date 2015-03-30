@@ -73,4 +73,7 @@ ggplot(loans.originations_by_month, aes(LoanOriginationMonth, NumLoansOriginated
   theme(axis.text.x=element_text(angle=-90,vjust=0.5))
 ```
 
-Grouped by months, the picture doesn't look much different than before.
+Grouped by months, the picture doesn't look much different than before. 
+We can tell that the trough in 2013 happed in February. We also see a steep drop
+off in March 2014 but it's possible that this data set is not complete for March
+2014 as it's the last month in the data set.

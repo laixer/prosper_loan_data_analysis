@@ -111,11 +111,7 @@ ggplot(loans.originations_by_month_state, aes(LoanOriginationMonth,
 
 The trends in number of originated loans look similar, but we can see that in 
 many states number of originated loans is pretty low. There's also a number of
-loans with no state for the earlier data.
+loans with no state for earlier data.
 
-```{r}
-loans.originations_by_state <- loans %>%
-  group_by(BorrowerState) %>%
-  summarize(NumLoansOriginated = n()) %>%
-  arrange(NumLoansOriginated)
-```
+
+

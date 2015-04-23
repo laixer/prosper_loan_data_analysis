@@ -162,15 +162,17 @@ the best score. How do prosper scores break down between completed and charged
 off loans?
 
 ```{r}
-loans.completed_by_month <- loans %>%
+loans.completed <- loans %>%
   mutate(ProsperScore = as.factor(ProsperScore)) %>%
   filter(LoanStatus %in% c("Completed", "Chargedoff")) %>%
-  filter(LoanOriginationMonth > "2009-07-01") %>%
+  filter(LoanOriginationMonth > "2009-07-01")
+
+loans.completed_by_month_status_score <- loans.completed %>%
   group_by(LoanOriginationMonth, LoanStatus, ProsperScore) %>%
   summarize(NumLoansOriginated = n()) %>%
   arrange(LoanOriginationMonth)
 
-ggplot(loans.completed_by_month, 
+ggplot(loans.completed_by_month_status_score, 
        aes(LoanOriginationMonth, NumLoansOriginated, fill = ProsperScore)) +
   facet_wrap(~ LoanStatus, ncol = 1) +
   geom_bar(stat = "identity") + 
@@ -182,28 +184,22 @@ ggplot(loans.completed_by_month,
 Let's normalize the counts to make the graph easier to interpret.
 
 ```{r}
-loans.completed_by_month <- loans %>%
-  mutate(ProsperScore = as.factor(ProsperScore)) %>%
-  filter(LoanStatus %in% c("Completed", "Chargedoff")) %>%
-  filter(LoanOriginationMonth > "2009-07-01") %>%
-  group_by(LoanOriginationMonth, LoanStatus, ProsperScore) %>%
-  summarize(NumLoansOriginated = n()) %>%
-  arrange(LoanOriginationMonth)
-
-loans.completed_by_month2 <- loans %>%
-  mutate(ProsperScore = as.factor(ProsperScore)) %>%
-  filter(LoanStatus %in% c("Completed", "Chargedoff")) %>%
-  filter(LoanOriginationMonth > "2009-07-01") %>%
+loans.completed_by_month_status <- loans.completed %>%
   group_by(LoanOriginationMonth, LoanStatus) %>%
   summarize(NumLoansOriginatedTotal = n()) %>%
   arrange(LoanOriginationMonth)
 
-x <- merge(loans.completed_by_month, loans.completed_by_month2, 
-           by.x = c("LoanOriginationMonth", "LoanStatus"))
-x <- mutate(x, prop = NumLoansOriginated / NumLoansOriginatedTotal)
+loans.completed_by_month_status_score <- merge(
+  loans.completed_by_month, 
+  loans.completed_by_month2, 
+  by.x = c("LoanOriginationMonth", "LoanStatus"))
 
-ggplot(x, 
-        aes(LoanOriginationMonth, prop, fill = ProsperScore)) +
+loans.completed_by_month_status_score <- mutate(
+  loans.completed_by_month_status_score, 
+  ProportionOriginated = NumLoansOriginated / NumLoansOriginatedTotal)
+
+ggplot(loans.completed_by_month_status_score, 
+       aes(LoanOriginationMonth, ProportionOriginated, fill = ProsperScore)) +
    facet_wrap(~ LoanStatus, ncol = 1) +
    geom_bar(stat = "identity") + 
    scale_x_datetime(labels = date_format("%b %Y"), 

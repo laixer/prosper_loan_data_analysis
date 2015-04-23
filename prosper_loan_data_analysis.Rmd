@@ -22,6 +22,7 @@ handle on this data.
 
 
 ```{r}
+library(plyr)
 library(dplyr)
 library(ggplot2)
 library(tidyr)
@@ -190,8 +191,8 @@ loans.completed_by_month_status <- loans.completed %>%
   arrange(LoanOriginationMonth)
 
 loans.completed_by_month_status_score <- merge(
-  loans.completed_by_month, 
-  loans.completed_by_month2, 
+  loans.completed_by_month_status_score, 
+  loans.completed_by_month_status, 
   by.x = c("LoanOriginationMonth", "LoanStatus"))
 
 loans.completed_by_month_status_score <- mutate(
@@ -211,3 +212,56 @@ It's a bit surprising that the proportion of scores are similar between the two
 sets. Initially the scores skew high, but become more distributed over time 
 presumably as the platform opens up (both with more variety of people coming to 
 the platform and as more sophisticated/return hungry lenders enter)
+
+```{r}
+library(reshape2)
+loan_features = .(Term, BorrowerAPR, BorrowerRate, LenderYield, 
+                  EstimatedEffectiveYield, EstimatedLoss, EstimatedReturn, 
+                  ListingCategory..numeric., BorrowerState, Occupation, 
+                  EmploymentStatus, EmploymentStatusDuration, 
+                  IsBorrowerHomeowner, CreditScoreRangeLower, 
+                  CreditScoreRangeUpper, CurrentCreditLines, OpenCreditLines, 
+                  TotalCreditLinespast7years, OpenRevolvingAccounts, 
+                  OpenRevolvingMonthlyPayment, InquiriesLast6Months, 
+                  TotalInquiries, CurrentDelinquencies, DelinquenciesLast7Years, 
+                  RevolvingCreditBalance, BankcardUtilization, 
+                  AvailableBankcardCredit, TradesNeverDelinquent..percentage., 
+                  DebtToIncomeRatio, IncomeRange, IncomeVerifiable, 
+                  StatedMonthlyIncome, ProsperPrincipalBorrowed, 
+                  LoanOriginalAmount, MonthlyLoanPayment, Recommendations, 
+                  Investors)
+
+# proportion of loans completed vs charged off?
+
+loans.completed = mutate(loans.completed, Term = as.factor(Term))
+#completed_loans = nrow(filter(loans.completed, LoanStatus == "Completed"))
+#chargedoff_loans = nrow(filter(loans.completed, LoanStatus == "Chargedoff"))
+
+plot_categorical_breakdown <- function(feature) {
+  x <- loans.completed %>%
+    group_by_(feature) %>%
+    summarize(TotalNumLoans = n())
+  
+  x2 <- loans.completed %>%
+    group_by_(feature, "LoanStatus") %>%
+    summarize(NumLoans = n())
+  
+  x3 <- merge(x, x2, by = c(feature))
+  x3 <- mutate(x3, PropLoans = NumLoans / TotalNumLoans)
+  
+  return(ggplot(x3, aes_string(feature, "PropLoans", fill = "LoanStatus")) +
+    geom_bar(stat = "identity"))
+}
+
+```
+
+```{r}
+plot_categorical_breakdown("Term")
+plot_categorical_breakdown("ListingCategory..numeric.")
+plot_categorical_breakdown("BorrowerState")
+plot_categorical_breakdown("Occupation") + 
+  theme(axis.text.x=element_text(angle=-90,hjust=0))
+plot_categorical_breakdown("EmploymentStatus")
+plot_categorical_breakdown("IsBorrowerHomeowner")
+plot_categorical_breakdown("IncomeVerifiable")
+```

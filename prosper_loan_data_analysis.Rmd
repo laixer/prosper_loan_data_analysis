@@ -32,14 +32,16 @@ loans.quarter_split <- separate(loans,
          col = "LoanOriginationQuarter", 
          into = c("LoanOriginationQuarterOfYear", "LoanOriginationYear"))
 loans$LoanOriginationQuarterSwapped = factor(paste(
-  loans.quarter_split$LoanOriginationYear, loans.quarter_split$LoanOriginationQuarterOfYear))
+  loans.quarter_split$LoanOriginationYear, 
+  loans.quarter_split$LoanOriginationQuarterOfYear))
 
 loans.originations_by_quarter <- loans %>%
   group_by(LoanOriginationQuarterSwapped) %>%
   summarize(NumLoansOriginated = n()) %>%
   arrange(LoanOriginationQuarterSwapped)
 
-ggplot(loans.originations_by_quarter, aes(LoanOriginationQuarterSwapped, NumLoansOriginated, group = "c")) +
+ggplot(loans.originations_by_quarter, 
+       aes(LoanOriginationQuarterSwapped, NumLoansOriginated, group = "c")) +
   geom_point() + geom_line()
 ```
 
@@ -66,10 +68,12 @@ loans.originations_by_month <- loans %>%
   summarize(NumLoansOriginated = n()) %>%
   arrange(LoanOriginationMonth)
 
-ggplot(loans.originations_by_month, aes(LoanOriginationMonth, NumLoansOriginated, group = "c")) +
+ggplot(loans.originations_by_month, 
+       aes(LoanOriginationMonth, NumLoansOriginated, group = "c")) +
   geom_point() + 
   geom_line() +
-  scale_x_datetime(labels = date_format("%b %Y"), breaks = date_breaks("3 months")) +
+  scale_x_datetime(labels = date_format("%b %Y"), 
+                   breaks = date_breaks("3 months")) +
   theme(axis.text.x=element_text(angle=-90,vjust=0.5))
 ```
 
@@ -86,11 +90,11 @@ loans.originations_by_month_state <- loans %>%
   ungroup() %>%
   arrange(LoanOriginationMonth)
 
-ggplot(loans.originations_by_month_state, aes(LoanOriginationMonth, 
-                                        NumLoansOriginated, 
-                                        fill = BorrowerState)) +
+ggplot(loans.originations_by_month_state, 
+       aes(LoanOriginationMonth, NumLoansOriginated, fill = BorrowerState)) +
   geom_bar(stat = "identity") + 
-  scale_x_datetime(labels = date_format("%b %Y"), breaks = date_breaks("3 months")) +
+  scale_x_datetime(labels = date_format("%b %Y"), 
+                   breaks = date_breaks("3 months")) +
   theme(axis.text.x=element_text(angle=-90,vjust=0.5))
 ```
 
@@ -100,12 +104,13 @@ so we can try looking at only some of the states. Before we do that, we can
 facet this data by state.
 
 ```{r}
-ggplot(loans.originations_by_month_state, aes(LoanOriginationMonth, 
-                                              NumLoansOriginated)) +
+ggplot(loans.originations_by_month_state, 
+       aes(LoanOriginationMonth, NumLoansOriginated)) +
   facet_wrap(~BorrowerState) +
   geom_point() + 
   geom_line() +
-  scale_x_datetime(labels = date_format("%b %Y"), breaks = date_breaks("3 months")) +
+  scale_x_datetime(labels = date_format("%b %Y"), 
+                   breaks = date_breaks("3 months")) +
   theme(axis.text.x=element_text(angle=-90,vjust=0.5))
 ```
 
@@ -113,5 +118,64 @@ The trends in number of originated loans look similar, but we can see that in
 many states number of originated loans is pretty low. There's also a number of
 loans with no state for earlier data.
 
+Let's start looking at loan success rates. We first can break down the loans by 
+status (grouped by origination date).
 
+```{r}
+loans.originations_by_month_status <- loans %>%
+  group_by(LoanOriginationMonth, LoanStatus) %>%
+  summarize(NumLoansOriginated = n()) %>%
+  arrange(LoanOriginationMonth)
+
+ggplot(loans.originations_by_month_status, 
+       aes(LoanOriginationMonth, NumLoansOriginated, color = LoanStatus)) +
+  geom_point() + 
+  geom_line() +
+  scale_x_datetime(labels = date_format("%b %Y"), 
+                   breaks = date_breaks("3 months")) +
+  theme(axis.text.x=element_text(angle=-90,vjust=0.5))
+```
+
+Since I'm interested in the difference between succesful and unsuccesful loans, 
+I'm going to focus on comparing loans that were completed vs those that have 
+been charged off.
+
+```{r}
+loans.originations_by_month_status <- loans %>%
+  filter(LoanStatus %in% c("Completed", "Chargedoff")) %>%
+  group_by(LoanOriginationMonth, LoanStatus) %>%
+  summarize(NumLoansOriginated = n()) %>%
+  arrange(LoanOriginationMonth)
+
+ggplot(loans.originations_by_month_status, 
+       aes(LoanOriginationMonth, NumLoansOriginated, color = LoanStatus)) +
+  geom_point() + 
+  geom_line() +
+  scale_x_datetime(labels = date_format("%b %Y"), 
+                   breaks = date_breaks("3 months")) +
+  theme(axis.text.x=element_text(angle=-90,vjust=0.5))
+```
+
+Loans starting from July 2009 have a prosper "score" assigned to them which
+indicates a probability of a loan "going bad" on a scale from 1-11 with 11 being
+the best score. How do prosper scores break down between completed and charged
+off loans?
+
+```{r}
+loans.completed_by_month <- loans %>%
+  mutate(ProsperScore = as.factor(ProsperScore)) %>%
+  filter(LoanStatus %in% c("Completed", "Chargedoff")) %>%
+  filter(LoanOriginationMonth > "2009-07-01") %>%
+  group_by(LoanOriginationMonth, LoanStatus, ProsperScore) %>%
+  summarize(NumLoansOriginated = n()) %>%
+  arrange(LoanOriginationMonth)
+
+ggplot(loans.completed_by_month, 
+       aes(LoanOriginationMonth, NumLoansOriginated, fill = ProsperScore)) +
+  facet_wrap(~ LoanStatus, ncol = 1) +
+  geom_bar(stat = "identity") + 
+  scale_x_datetime(labels = date_format("%b %Y"), 
+                   breaks = date_breaks("3 months")) +
+  theme(axis.text.x=element_text(angle=-90,vjust=0.5))
+```
 

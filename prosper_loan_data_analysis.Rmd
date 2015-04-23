@@ -208,4 +208,6 @@ ggplot(loans.completed_by_month_status_score,
 ```
 
 It's a bit surprising that the proportion of scores are similar between the two 
-sets.
+sets. Initially the scores skew high, but become more distributed over time 
+presumably as the platform opens up (both with more variety of people coming to 
+the platform and as more sophisticated/return hungry lenders enter)

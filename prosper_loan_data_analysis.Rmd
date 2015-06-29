@@ -1,32 +1,65 @@
 ---
 title: "Analysis of Prosper loan data from Q4 2005 to Q1 2014"
-output: html_document
+output: pdf_document
 ---
 
 Let's load the data and get an idea about its variables.
 
 ```{r}
 library(lubridate)
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(scales)
+library(gridExtra)
+```
+
+```{r load_data, cache=TRUE}
 
 loans <- read.csv("prosperLoanData.csv")
 # Parse origination date.
 loans$LoanOriginationDate <- ymd_hms(loans$LoanOriginationDate)
+
+category_labels = c(
+"Not available",
+"Debt consolidation",
+"Home improvement",
+"Business",
+"Personal loan",
+"Student use",
+"Auto",
+"Other",
+"Baby & Adoption Loans",
+"Boat",
+"Cosmetic Procedures",
+"Engagement Ring Financing",
+"Green Loans",
+"Household Expenses",
+"Large Purchases",
+"Medical/Dental",
+"Motorcycle",
+"RV",
+"Taxes",
+"Vacation",
+"Wedding Loans")
+loans$ListingCategory = factor(
+  loans$ListingCategory..numeric., labels=category_labels)
+
 str(loans)
 ```
 
 There are approximately 100K records with 81 variables. 
 
+## Number loans originated over time
+
 That's a lot of variables! Even with the variable definitions it's hard to keep
 track of everything that's going on. Let's plot some data to start getting a 
 handle on this data.
 
+### By quarter
 
-```{r}
-library(plyr)
-library(dplyr)
-library(ggplot2)
-library(tidyr)
-
+```{r loans_over_quarter, cache=TRUE}
 # The origination quarter is in format "QX YYYY" which is hard to order so let's
 # swap the order of the values.
 loans.quarter_split <- separate(loans, 
@@ -43,7 +76,8 @@ loans.originations_by_quarter <- loans %>%
 
 ggplot(loans.originations_by_quarter, 
        aes(LoanOriginationQuarterSwapped, NumLoansOriginated, group = "c")) +
-  geom_point() + geom_line()
+  geom_point() + geom_line() + 
+  theme(axis.text.x=element_text(angle=-90,vjust=0.5))
 ```
 
 The earliest loans are from 2005-2006, when Prosper was founded and went public.
@@ -60,8 +94,9 @@ the subsequent increased growth.
 
 Grouping by month might reveal more details.
 
-```{r}
-library(scales)
+### By month
+
+```{r loans_over_month, cache=TRUE}
 loans$LoanOriginationMonth <- floor_date(loans$LoanOriginationDate, "month")
 
 loans.originations_by_month <- loans %>%
@@ -84,7 +119,10 @@ off in March 2014 but it's possible that this data set is not complete for March
 2014 as it's the last month in the data set.
 
 What happens if we break down the loans by state? 
-```{r}
+
+### By month, broken down by state
+
+```{r loans_by_month_state, cache=TRUE}
 loans.originations_by_month_state <- loans %>%
   group_by(LoanOriginationMonth, BorrowerState) %>%
   summarize(NumLoansOriginated = n()) %>%
@@ -104,7 +142,9 @@ it appears that most of the loans are concentrated in a small number of states
 so we can try looking at only some of the states. Before we do that, we can 
 facet this data by state.
 
-```{r}
+### By month, faceted by state
+
+```{r loans_by_month_faceted_state, cache=TRUE}
 ggplot(loans.originations_by_month_state, 
        aes(LoanOriginationMonth, NumLoansOriginated)) +
   facet_wrap(~BorrowerState) +
@@ -119,10 +159,14 @@ The trends in number of originated loans look similar, but we can see that in
 many states number of originated loans is pretty low. There's also a number of
 loans with no state for earlier data.
 
+## Success rates
+
 Let's start looking at loan success rates. We first can break down the loans by 
 status (grouped by origination date).
 
-```{r}
+### Over time, by month
+
+```{r loans_by_month_status, cache=TRUE}
 loans.originations_by_month_status <- loans %>%
   group_by(LoanOriginationMonth, LoanStatus) %>%
   summarize(NumLoansOriginated = n()) %>%
@@ -137,11 +181,11 @@ ggplot(loans.originations_by_month_status,
   theme(axis.text.x=element_text(angle=-90,vjust=0.5))
 ```
 
-Since I'm interested in the difference between succesful and unsuccesful loans, 
+I'd like to explore the difference between succesful and unsuccesful loans, so
 I'm going to focus on comparing loans that were completed vs those that have 
 been charged off.
 
-```{r}
+```{r loans_by_month_status2, cache=TRUE}
 loans.originations_by_month_status <- loans %>%
   filter(LoanStatus %in% c("Completed", "Chargedoff")) %>%
   group_by(LoanOriginationMonth, LoanStatus) %>%
@@ -157,12 +201,14 @@ ggplot(loans.originations_by_month_status,
   theme(axis.text.x=element_text(angle=-90,vjust=0.5))
 ```
 
-Loans starting from July 2009 have a prosper "score" assigned to them which
+Loans starting from July 2009 have a Prosper "score" assigned to them which
 indicates a probability of a loan "going bad" on a scale from 1-11 with 11 being
-the best score. How do prosper scores break down between completed and charged
+the best score. How do Prosper scores break down between completed and charged
 off loans?
 
-```{r}
+### Over time, by month (only Chargedoff and Completed)
+
+```{r loans_completed_prosper_score, cache=TRUE}
 loans.completed <- loans %>%
   mutate(ProsperScore = as.factor(ProsperScore)) %>%
   filter(LoanStatus %in% c("Completed", "Chargedoff")) %>%
@@ -182,24 +228,26 @@ ggplot(loans.completed_by_month_status_score,
   theme(axis.text.x=element_text(angle=-90,vjust=0.5))
 ```
 
+### Over time, by month (only Chargedoff and Completed, proportional)
+
 Let's normalize the counts to make the graph easier to interpret.
 
-```{r}
+```{r loans_completed_by_month_normalized, cache=TRUE}
 loans.completed_by_month_status <- loans.completed %>%
   group_by(LoanOriginationMonth, LoanStatus) %>%
   summarize(NumLoansOriginatedTotal = n()) %>%
   arrange(LoanOriginationMonth)
 
-loans.completed_by_month_status_score <- merge(
+loans.completed_by_month_status_score_merged <- merge(
   loans.completed_by_month_status_score, 
   loans.completed_by_month_status, 
   by.x = c("LoanOriginationMonth", "LoanStatus"))
 
-loans.completed_by_month_status_score <- mutate(
-  loans.completed_by_month_status_score, 
+loans.completed_by_month_status_score_merged <- mutate(
+  loans.completed_by_month_status_score_merged, 
   ProportionOriginated = NumLoansOriginated / NumLoansOriginatedTotal)
 
-ggplot(loans.completed_by_month_status_score, 
+ggplot(loans.completed_by_month_status_score_merged, 
        aes(LoanOriginationMonth, ProportionOriginated, fill = ProsperScore)) +
    facet_wrap(~ LoanStatus, ncol = 1) +
    geom_bar(stat = "identity") + 
@@ -211,13 +259,18 @@ ggplot(loans.completed_by_month_status_score,
 It's a bit surprising that the proportion of scores are similar between the two 
 sets. Initially the scores skew high, but become more distributed over time 
 presumably as the platform opens up (both with more variety of people coming to 
-the platform and as more sophisticated/return hungry lenders enter)
+the platform and as more sophisticated/return hungry lenders enter).
+
+## Charge-off rates for categorical variables
+
+Let's look at some individual characteristics and see how they affect loan 
+outcomes.
 
 ```{r}
 library(reshape2)
 loan_features = .(Term, BorrowerAPR, BorrowerRate, LenderYield, 
                   EstimatedEffectiveYield, EstimatedLoss, EstimatedReturn, 
-                  ListingCategory..numeric., BorrowerState, Occupation, 
+                  ListingCategory., BorrowerState, Occupation, 
                   EmploymentStatus, EmploymentStatusDuration, 
                   IsBorrowerHomeowner, CreditScoreRangeLower, 
                   CreditScoreRangeUpper, CurrentCreditLines, OpenCreditLines, 
@@ -255,13 +308,262 @@ plot_categorical_breakdown <- function(feature) {
 
 ```
 
+### By term
+
 ```{r}
 plot_categorical_breakdown("Term")
-plot_categorical_breakdown("ListingCategory..numeric.")
+```
+
+Here we see that loans with longer terms are charged off more often, but it's
+difficult to draw any conclusions. Perhaps the nature of loans is different 
+between shorter and longer term loans. It would be interesting to explore if 
+there any other variables that correlate with loan term.
+
+```{r}
+plot_term_breakdown <- function(feature) {
+  x <- loans.completed %>%
+    filter(LoanStatus == "Chargedoff") %>%
+    group_by(Term) %>%
+    summarize(TotalNumLoans = n())
+  
+  x2 <- loans.completed %>%
+    filter(LoanStatus == "Chargedoff") %>%
+    group_by_("Term", feature) %>%
+    summarize(NumLoans = n())
+  
+  x3 <- merge(x, x2, by = c("Term"))
+  x3 <- mutate(x3, PropLoans = NumLoans / TotalNumLoans)
+  
+  return(ggplot(x3, aes_string("Term", "PropLoans", fill = feature)) +
+    geom_bar(stat = "identity"))
+}
+plot_term_breakdown("ListingCategory")
+```
+
+If we further break down the chargedoff loans by listing category, we don't
+see anything obvious that would lead to such differences in charge off rate.
+
+What about occupation?
+
+```{r}
+plot_term_breakdown("Occupation")
+```
+
+Nothing interesting here. 
+
+```{r}
+plot_term_breakdown("EmploymentStatus")
+plot_term_breakdown("IsBorrowerHomeowner")
+plot_term_breakdown("IncomeVerifiable")
+```
+
+```{r}
+loans.completed$CreditScoreRangeLowerBucket = cut(
+  loans.completed$CreditScoreRangeLower, breaks=10)
+plot_term_breakdown("CreditScoreRangeLowerBucket")
+```
+
+```{r}
+plot_term_breakdown("IncomeRange")
+```
+
+```{r}
+loans.completed$LoanOriginalAmountBucket = cut(
+  loans.completed$LoanOriginalAmount, breaks=20, dig.lab=8)
+plot_term_breakdown("LoanOriginalAmountBucket")
+```
+
+Here we see a big different in distribution of loan amounts vs loan term. This 
+could explain some of the differences in the charge off rates between different 
+terms.
+
+### By listing category
+
+```{r}
+plot_categorical_breakdown("ListingCategory") +
+  theme(axis.text.x=element_text(angle=-90,hjust=0))
+```
+
+Charge-off rates vary quite a bit by category. Green loans appear to be the 
+riskiest.
+
+### By borrower state
+
+```{r}
 plot_categorical_breakdown("BorrowerState")
+```
+
+State does appear to affect charge-off reates, but me feeling is that it's 
+likely to be caused by different demographics and types of loans.
+
+### By occupation
+
+```{r}
 plot_categorical_breakdown("Occupation") + 
   theme(axis.text.x=element_text(angle=-90,hjust=0))
+```
+
+There's great variety by occupation, but it's not likely to be an effective 
+indicator by itself. It would be worth looking at it in combination with other
+characteristics.
+
+### By employment status, homeownership, verifiable income
+
+```{r}
 plot_categorical_breakdown("EmploymentStatus")
 plot_categorical_breakdown("IsBorrowerHomeowner")
 plot_categorical_breakdown("IncomeVerifiable")
 ```
+
+Same story for these characteristics. It's hard to read into any of these 
+individually.
+
+### By borrower rate
+
+```{r}
+loans.completed$BorrowerRateBucket = cut(
+  loans.completed$BorrowerRate, breaks=10)
+plot_categorical_breakdown("BorrowerRateBucket")
+```
+
+Here we see that loans with higher rates have a higher charge off rate, which is 
+expected as riskier loans would have higher rates.
+
+### By borrower APR
+
+```{r}
+loans.completed$BorrowerAPRBucket = cut(
+  loans.completed$BorrowerAPR, breaks=10)
+plot_categorical_breakdown("BorrowerAPRBucket")
+```
+
+# Final Plots and Summary
+
+```{r, fig.width=10}
+loans.originations_by_month_state <- loans %>%
+  group_by(LoanOriginationMonth, BorrowerState) %>%
+  summarize(NumLoansOriginated = n()) %>%
+  ungroup() %>%
+  arrange(LoanOriginationMonth) %>%
+  mutate(BorrowerState=ifelse(
+    BorrowerState == "", "Unknown", as.character(BorrowerState)))
+
+loans.originations_by_state <- loans %>%
+  group_by(BorrowerState) %>%
+  summarize(NumLoansOriginated = n()) %>%
+  arrange(desc(NumLoansOriginated)) %>%
+  mutate(BorrowerState=ifelse(
+    BorrowerState == "", "Unknown", as.character(BorrowerState)))
+
+top_10_states = loans.originations_by_state[1:10,]$BorrowerState
+
+loans.originations_by_month_state <- loans.originations_by_month_state %>%
+  mutate(BorrowerState=ifelse(
+    BorrowerState %in% top_10_states, as.character(BorrowerState), "Other")) %>%
+  group_by(LoanOriginationMonth, BorrowerState) %>%
+  summarize(NumLoansOriginated=sum(NumLoansOriginated))
+
+ggplot(loans.originations_by_month_state, 
+       aes(LoanOriginationMonth, NumLoansOriginated, fill = BorrowerState)) +
+  geom_bar(stat = "identity") + 
+  scale_x_datetime(labels = date_format("%b %Y"), 
+                   breaks = date_breaks("3 months")) +
+  theme(axis.text.x=element_text(angle=-90,vjust=0.5)) +
+  ggtitle("Number of loans originated over time broken down by state") +
+  ylab("Number loans") + xlab("")
+```
+
+From this graph, we can see the trend in the number of loans originated on the 
+Prosper platform. In the beginning the platform was growing steadily, but there
+was a sharp drop off in 2008, possibly related to the recession. There appears 
+to be a gap in data until 2009 (according to TechCrunch, Prosper stopped 
+originating new loans in September 2008 due to SEC scrutiny. Wikipedia indicates
+they re-launched in July, 2009). 
+
+Starting in 2009, the loans begun picking up again, only to see another decline 
+starting end of 2012. I have not been able to identify the cause of this 
+dropoff. After reaching a bottom in early 2013, the platform began growing 
+again.
+
+On this graph, we can also see the geographical breakdown of Prosper loans over 
+time. Initially, there was a disproportionate amount of loans in Virginia
+(reason unclear). Over time the loans became more geographically diverse. 
+
+```{r}
+loans.completed_by_month_status <- loans.completed %>%
+  group_by(LoanOriginationMonth, LoanStatus) %>%
+  summarize(NumLoansOriginatedTotal = n()) %>%
+  arrange(LoanOriginationMonth)
+
+loans.completed_by_month_status_score_merged <- merge(
+  loans.completed_by_month_status_score, 
+  loans.completed_by_month_status, 
+  by.x = c("LoanOriginationMonth", "LoanStatus"))
+
+loans.completed_by_month_status_score_merged <- mutate(
+  loans.completed_by_month_status_score_merged, 
+  ProportionOriginated = NumLoansOriginated / NumLoansOriginatedTotal)
+
+ggplot(loans.completed_by_month_status_score_merged, 
+       aes(LoanOriginationMonth, ProportionOriginated, fill = ProsperScore)) +
+   facet_wrap(~ LoanStatus, ncol = 1) +
+   geom_bar(stat = "identity") + 
+   scale_x_datetime(labels = date_format("%b %Y"), 
+                    breaks = date_breaks("3 months")) +
+  theme(axis.text.x=element_text(angle=-90,vjust=0.5)) +
+  ggtitle("Distribution of loans by prosper score over time") +
+  ylab("Proportion") + xlab("")
+```
+
+Here we see how the risk quality of loans has changed over time. Initially, the 
+data is skewed towards higher quality loans but over time the quality of loans 
+becomes more diversified. One possible explanation is that the investor pool 
+grew larger as Prosper grew with more investors willing to take on riskier loans
+in exchange for higher rates. 
+
+Another possible contributing factor is changes to how the Prosper score is 
+computed. Perhaps as Prosper matured, they were able to improve their models 
+which might lead to changes in how loans are classified.
+
+We also see that the distribution of charged-off loans trends to lower scores 
+over time.
+
+```{r}
+g_prop_by_term <- plot_categorical_breakdown("Term") +
+  ggtitle("Completed loans broken down by term") +
+  ylab("Proportion of completed loans") +
+  xlab("Term (Months)")
+
+loans.completed$LoanOriginalAmountBucket <- cut(
+  loans.completed$LoanOriginalAmount, breaks=10, dig.lab=8)
+g_chargedoff_prop_by_term <- plot_term_breakdown("LoanOriginalAmountBucket") + 
+  ggtitle("Charge-offs broken down by term and loan amount") +
+  ylab("Proportion of charged-off loans") +
+  xlab("Term (months)")
+
+grid.arrange(g_prop_by_term, g_chargedoff_prop_by_term, ncol=1)
+```
+
+In the top panel, we see that the proportion of charged-off increases as the 
+term of the loan increases.
+
+In the bottom panel, we see a breakdown of the charged-off loans by loan amount.
+Longer term loans tend to be for higher amounts, which could explain the higher
+charge-off rates, but I'm cautious about drawing any conclusions as there are 
+likely other factors that influence the loan amount that could explain away the 
+higher charge-off rates.
+
+# Reflection
+
+This has been a challenging data set to work with due to the amount of 
+variables. My analysis only scratched the surface of this data. Even looking at 
+a small subset of the variables required quite a bit of effort. Someone more 
+familiar with the subject might have known which variables were worth focusing 
+on. 
+
+Another challenge is that many of the variables in this data set are not 
+independent making it hard to make any inferences. One has to be very careful 
+when trying to interpret this data as the relationships are tricky. If I were to
+do further analysis on this data set, I would focus on trying to understand the
+relationship between the various variables before trying to understand their 
+relationship to loan success.

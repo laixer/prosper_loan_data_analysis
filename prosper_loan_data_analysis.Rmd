@@ -5,7 +5,7 @@ output: html_document
 
 Let's load the data and get an idea about its variables.
 
-```{r}
+```{r, echo=FALSE, message=FALSE}
 library(lubridate)
 library(plyr)
 library(dplyr)
@@ -15,8 +15,7 @@ library(scales)
 library(gridExtra)
 ```
 
-```{r load_data, cache=TRUE}
-
+```{r load_data, cache=TRUE, echo=FALSE}
 loans <- read.csv("prosperLoanData.csv")
 # Parse origination date.
 loans$LoanOriginationDate <- ymd_hms(loans$LoanOriginationDate)
@@ -61,7 +60,7 @@ handle on this data.
 
 ### By quarter
 
-```{r loans_over_quarter, cache=TRUE, fig.width=10, fig.height=6}
+```{r loans_over_quarter, cache=TRUE, fig.width=10, fig.height=6, echo=FALSE}
 # The origination quarter is in format "QX YYYY" which is hard to order so let's
 # swap the order of the values.
 loans.quarter_split <- separate(loans, 
@@ -98,7 +97,7 @@ Grouping by month might reveal more details.
 
 ### By month
 
-```{r loans_over_month, cache=TRUE, fig.width=10, fig.height=6}
+```{r loans_over_month, cache=TRUE, fig.width=10, fig.height=6, echo=FALSE}
 # Extract the month from the loan origination date so we can group by it.
 loans$LoanOriginationMonth <- floor_date(loans$LoanOriginationDate, "month")
 
@@ -125,7 +124,7 @@ What happens if we break down the loans by state?
 
 ### By month, broken down by state
 
-```{r loans_by_month_state, cache=TRUE, fig.width=10, fig.height=6}
+```{r loans_by_month_state, cache=TRUE, fig.width=10, fig.height=6, echo=FALSE}
 loans.originations_by_month_state <- loans %>%
   group_by(LoanOriginationMonth, BorrowerState) %>%
   summarize(NumLoansOriginated = n()) %>%
@@ -147,7 +146,7 @@ facet this data by state.
 
 ### By month, faceted by state
 
-```{r loans_by_month_faceted_state, cache=TRUE, fig.width=10, fig.height=6}
+```{r loans_by_month_faceted_state, cache=TRUE, fig.width=10, fig.height=6, echo=FALSE}
 ggplot(loans.originations_by_month_state, 
        aes(LoanOriginationMonth, NumLoansOriginated)) +
   facet_wrap(~BorrowerState) +
@@ -169,7 +168,7 @@ status (grouped by origination date).
 
 ### Over time, by month
 
-```{r loans_by_month_status, cache=TRUE, fig.width=10, fig.height=6}
+```{r loans_by_month_status, cache=TRUE, fig.width=10, fig.height=6, echo=FALSE}
 loans.originations_by_month_status <- loans %>%
   group_by(LoanOriginationMonth, LoanStatus) %>%
   summarize(NumLoansOriginated = n()) %>%
@@ -188,7 +187,7 @@ I'd like to explore the difference between succesful and unsuccesful loans, so
 I'm going to focus on comparing loans that were completed vs those that have 
 been charged off.
 
-```{r loans_by_month_status2, cache=TRUE, fig.width=10, fig.height=6}
+```{r loans_by_month_status2, cache=TRUE, fig.width=10, fig.height=6, echo=FALSE}
 loans.originations_by_month_status <- loans %>%
   filter(LoanStatus %in% c("Completed", "Chargedoff")) %>%
   group_by(LoanOriginationMonth, LoanStatus) %>%
@@ -211,7 +210,7 @@ off loans?
 
 ### Over time, by month (only Chargedoff and Completed)
 
-```{r loans_completed_prosper_score, cache=TRUE, fig.width=10, fig.height=6}
+```{r loans_completed_prosper_score, cache=TRUE, fig.width=10, fig.height=6, echo=FALSE}
 loans.completed <- loans %>%
   mutate(ProsperScore = as.factor(ProsperScore)) %>%
   filter(LoanStatus %in% c("Completed", "Chargedoff")) %>%
@@ -235,7 +234,7 @@ ggplot(loans.completed_by_month_status_score,
 
 Let's normalize the counts to make the graph easier to interpret.
 
-```{r loans_completed_by_month_normalized, cache=TRUE, fig.width=10, fig.height=6}
+```{r loans_completed_by_month_normalized, cache=TRUE, fig.width=10, fig.height=6, echo=FALSE}
 loans.completed_by_month_status <- loans.completed %>%
   group_by(LoanOriginationMonth, LoanStatus) %>%
   summarize(NumLoansOriginatedTotal = n()) %>%
@@ -271,7 +270,7 @@ the platform and as more sophisticated/return hungry lenders enter).
 Let's look at some individual characteristics and see how they affect loan 
 outcomes.
 
-```{r}
+```{r, echo=FALSE}
 library(reshape2)
 loans.completed = mutate(loans.completed, Term = as.factor(Term))
 
@@ -301,7 +300,7 @@ plot_completed_loans_categorical_breakdown <- function(feature) {
 
 ### By term
 
-```{r, fig.width=10, fig.height=6}
+```{r, fig.width=10, fig.height=6, echo=FALSE}
 plot_completed_loans_categorical_breakdown("Term")
 ```
 
@@ -310,7 +309,7 @@ difficult to draw any conclusions. Perhaps the nature of loans is different
 between shorter and longer term loans. It would be interesting to explore if 
 there any other variables that correlate with loan term.
 
-```{r, fig.width=10, fig.height=6}
+```{r, fig.width=10, fig.height=6, echo=FALSE}
 # Returns a bar chart that shows proportions of loans by the given feature
 # for charged-off loans of different terms.
 plot_chargedoff_loans_term_breakdown <- function(feature) {
@@ -342,29 +341,29 @@ see anything obvious that would lead to such differences in charge off rate.
 
 What about occupation?
 
-```{r, fig.width=10, fig.height=6}
+```{r, fig.width=10, fig.height=6, echo=FALSE}
 plot_chargedoff_loans_term_breakdown("Occupation")
 ```
 
 Nothing interesting here. 
 
-```{r, fig.width=10, fig.height=6}
+```{r, fig.width=10, fig.height=6, echo=FALSE}
 plot_chargedoff_loans_term_breakdown("EmploymentStatus")
 plot_chargedoff_loans_term_breakdown("IsBorrowerHomeowner")
 plot_chargedoff_loans_term_breakdown("IncomeVerifiable")
 ```
 
-```{r, fig.width=10, fig.height=6}
+```{r, fig.width=10, fig.height=6, echo=FALSE}
 loans.completed$CreditScoreRangeLowerBucket = cut(
   loans.completed$CreditScoreRangeLower, breaks=10)
 plot_chargedoff_loans_term_breakdown("CreditScoreRangeLowerBucket")
 ```
 
-```{r, fig.width=10, fig.height=6}
+```{r, fig.width=10, fig.height=6, echo=FALSE}
 plot_chargedoff_loans_term_breakdown("IncomeRange")
 ```
 
-```{r, fig.width=10, fig.height=6}
+```{r, fig.width=10, fig.height=6, echo=FALSE}
 loans.completed$LoanOriginalAmountBucket = cut(
   loans.completed$LoanOriginalAmount, breaks=20, dig.lab=8)
 plot_chargedoff_loans_term_breakdown("LoanOriginalAmountBucket")
@@ -376,7 +375,7 @@ terms.
 
 ### By listing category
 
-```{r, fig.width=10, fig.height=6}
+```{r, fig.width=10, fig.height=6, echo=FALSE}
 plot_completed_loans_categorical_breakdown("ListingCategory") +
   theme(axis.text.x=element_text(angle=-90,hjust=0))
 ```
@@ -386,7 +385,7 @@ riskiest.
 
 ### By borrower state
 
-```{r, fig.width=10, fig.height=6}
+```{r, fig.width=10, fig.height=6, echo=FALSE}
 plot_completed_loans_categorical_breakdown("BorrowerState")
 ```
 
@@ -395,7 +394,7 @@ likely to be caused by different demographics and types of loans.
 
 ### By occupation
 
-```{r, fig.width=10, fig.height=6}
+```{r, fig.width=10, fig.height=6, echo=FALSE}
 plot_completed_loans_categorical_breakdown("Occupation") + 
   theme(axis.text.x=element_text(angle=-90,hjust=0))
 ```
@@ -406,7 +405,7 @@ characteristics.
 
 ### By employment status, homeownership, verifiable income
 
-```{r, fig.width=10, fig.height=6}
+```{r, fig.width=10, fig.height=6, echo=FALSE}
 plot_completed_loans_categorical_breakdown("EmploymentStatus")
 plot_completed_loans_categorical_breakdown("IsBorrowerHomeowner")
 plot_completed_loans_categorical_breakdown("IncomeVerifiable")
@@ -417,7 +416,7 @@ individually.
 
 ### By borrower rate
 
-```{r, fig.width=10, fig.height=6}
+```{r, fig.width=10, fig.height=6, echo=FALSE}
 loans.completed$BorrowerRateBucket = cut(
   loans.completed$BorrowerRate, breaks=10)
 plot_completed_loans_categorical_breakdown("BorrowerRateBucket")
@@ -428,7 +427,7 @@ expected as riskier loans would have higher rates.
 
 ### By borrower APR
 
-```{r, fig.width=10, fig.height=6}
+```{r, fig.width=10, fig.height=6, echo=FALSE}
 loans.completed$BorrowerAPRBucket = cut(
   loans.completed$BorrowerAPR, breaks=10)
 plot_completed_loans_categorical_breakdown("BorrowerAPRBucket")
@@ -436,7 +435,7 @@ plot_completed_loans_categorical_breakdown("BorrowerAPRBucket")
 
 # Final Plots and Summary
 
-```{r, fig.width=10, fig.height=6}
+```{r, fig.width=10, fig.height=6, echo=FALSE}
 loans.originations_by_month_state <- loans %>%
   group_by(LoanOriginationMonth, BorrowerState) %>%
   summarize(NumLoansOriginated = n()) %>%
@@ -486,7 +485,7 @@ On this graph, we can also see the geographical breakdown of Prosper loans over
 time. Initially, there was a disproportionate amount of loans in Virginia
 (reason unclear). Over time the loans became more geographically diverse. 
 
-```{r, fig.width=10, fig.height=6}
+```{r, fig.width=10, fig.height=6, echo=FALSE}
 loans.completed_by_month_status <- loans.completed %>%
   group_by(LoanOriginationMonth, LoanStatus) %>%
   summarize(NumLoansOriginatedTotal = n()) %>%
@@ -525,7 +524,7 @@ which might lead to changes in how loans are classified.
 We also see that the distribution of charged-off loans trends to lower scores 
 over time.
 
-```{r, fig.width=10, fig.height=6}
+```{r, fig.width=10, fig.height=6, echo=FALSE}
 g_prop_by_term <- plot_completed_loans_categorical_breakdown("Term") +
   ggtitle("Completed loans broken down by term") +
   ylab("Proportion of completed loans") +

@@ -21,6 +21,8 @@ loans <- read.csv("prosperLoanData.csv")
 # Parse origination date.
 loans$LoanOriginationDate <- ymd_hms(loans$LoanOriginationDate)
 
+# Original dataset doesn't have loan category labels, let's fix that.
+# Source: https://www.prosper.com/Downloads/Services/Documentation/ProsperAPI_Objects_Details.html
 category_labels = c(
 "Not available",
 "Debt consolidation",
@@ -97,6 +99,7 @@ Grouping by month might reveal more details.
 ### By month
 
 ```{r loans_over_month, cache=TRUE, fig.width=10, fig.height=6}
+# Extract the month from the loan origination date so we can group by it.
 loans$LoanOriginationMonth <- floor_date(loans$LoanOriginationDate, "month")
 
 loans.originations_by_month <- loans %>%
@@ -238,6 +241,8 @@ loans.completed_by_month_status <- loans.completed %>%
   summarize(NumLoansOriginatedTotal = n()) %>%
   arrange(LoanOriginationMonth)
 
+# Merge counts by [month, status, score] with counts by [month, status] so that
+# we can compute the proportional values.
 loans.completed_by_month_status_score_merged <- merge(
   loans.completed_by_month_status_score, 
   loans.completed_by_month_status, 
@@ -268,41 +273,27 @@ outcomes.
 
 ```{r}
 library(reshape2)
-loan_features = .(Term, BorrowerAPR, BorrowerRate, LenderYield, 
-                  EstimatedEffectiveYield, EstimatedLoss, EstimatedReturn, 
-                  ListingCategory., BorrowerState, Occupation, 
-                  EmploymentStatus, EmploymentStatusDuration, 
-                  IsBorrowerHomeowner, CreditScoreRangeLower, 
-                  CreditScoreRangeUpper, CurrentCreditLines, OpenCreditLines, 
-                  TotalCreditLinespast7years, OpenRevolvingAccounts, 
-                  OpenRevolvingMonthlyPayment, InquiriesLast6Months, 
-                  TotalInquiries, CurrentDelinquencies, DelinquenciesLast7Years, 
-                  RevolvingCreditBalance, BankcardUtilization, 
-                  AvailableBankcardCredit, TradesNeverDelinquent..percentage., 
-                  DebtToIncomeRatio, IncomeRange, IncomeVerifiable, 
-                  StatedMonthlyIncome, ProsperPrincipalBorrowed, 
-                  LoanOriginalAmount, MonthlyLoanPayment, Recommendations, 
-                  Investors)
-
-# proportion of loans completed vs charged off?
-
 loans.completed = mutate(loans.completed, Term = as.factor(Term))
-#completed_loans = nrow(filter(loans.completed, LoanStatus == "Completed"))
-#chargedoff_loans = nrow(filter(loans.completed, LoanStatus == "Chargedoff"))
 
-plot_categorical_breakdown <- function(feature) {
-  x <- loans.completed %>%
+# Returns a bar chart that shows the proportion of chargedoff and completed 
+# loans broken down along the given feature of the dataset.
+plot_completed_loans_categorical_breakdown <- function(feature) {
+  completed_by_feature <- loans.completed %>%
     group_by_(feature) %>%
     summarize(TotalNumLoans = n())
   
-  x2 <- loans.completed %>%
+  completes_by_feature_and_status <- loans.completed %>%
     group_by_(feature, "LoanStatus") %>%
     summarize(NumLoans = n())
   
-  x3 <- merge(x, x2, by = c(feature))
-  x3 <- mutate(x3, PropLoans = NumLoans / TotalNumLoans)
+  completes_by_feature_and_status_merged <- merge(
+    completed_by_feature, completes_by_feature_and_status, by = c(feature))
+  completes_by_feature_and_status_merged <- mutate(
+    completes_by_feature_and_status_merged, 
+    PropLoans = NumLoans / TotalNumLoans)
   
-  return(ggplot(x3, aes_string(feature, "PropLoans", fill = "LoanStatus")) +
+  return(ggplot(completes_by_feature_and_status_merged, 
+                aes_string(feature, "PropLoans", fill = "LoanStatus")) +
     geom_bar(stat = "identity"))
 }
 
@@ -311,7 +302,7 @@ plot_categorical_breakdown <- function(feature) {
 ### By term
 
 ```{r, fig.width=10, fig.height=6}
-plot_categorical_breakdown("Term")
+plot_completed_loans_categorical_breakdown("Term")
 ```
 
 Here we see that loans with longer terms are charged off more often, but it's
@@ -320,24 +311,30 @@ between shorter and longer term loans. It would be interesting to explore if
 there any other variables that correlate with loan term.
 
 ```{r, fig.width=10, fig.height=6}
-plot_term_breakdown <- function(feature) {
-  x <- loans.completed %>%
+# Returns a bar chart that shows proportions of loans by the given feature
+# for charged-off loans of different terms.
+plot_chargedoff_loans_term_breakdown <- function(feature) {
+  charged_off_by_term <- loans.completed %>%
     filter(LoanStatus == "Chargedoff") %>%
     group_by(Term) %>%
     summarize(TotalNumLoans = n())
   
-  x2 <- loans.completed %>%
+  charged_off_by_term_and_feature <- loans.completed %>%
     filter(LoanStatus == "Chargedoff") %>%
     group_by_("Term", feature) %>%
     summarize(NumLoans = n())
   
-  x3 <- merge(x, x2, by = c("Term"))
-  x3 <- mutate(x3, PropLoans = NumLoans / TotalNumLoans)
+  charged_off_by_term_and_feature_merged <- merge(
+    charged_off_by_term, charged_off_by_term_and_feature, by = c("Term"))
+  charged_off_by_term_and_feature_merged <- mutate(
+    charged_off_by_term_and_feature_merged, 
+    PropLoans = NumLoans / TotalNumLoans)
   
-  return(ggplot(x3, aes_string("Term", "PropLoans", fill = feature)) +
+  return(ggplot(charged_off_by_term_and_feature_merged, 
+                aes_string("Term", "PropLoans", fill = feature)) +
     geom_bar(stat = "identity"))
 }
-plot_term_breakdown("ListingCategory")
+plot_chargedoff_loans_term_breakdown("ListingCategory")
 ```
 
 If we further break down the chargedoff loans by listing category, we don't
@@ -346,31 +343,31 @@ see anything obvious that would lead to such differences in charge off rate.
 What about occupation?
 
 ```{r, fig.width=10, fig.height=6}
-plot_term_breakdown("Occupation")
+plot_chargedoff_loans_term_breakdown("Occupation")
 ```
 
 Nothing interesting here. 
 
 ```{r, fig.width=10, fig.height=6}
-plot_term_breakdown("EmploymentStatus")
-plot_term_breakdown("IsBorrowerHomeowner")
-plot_term_breakdown("IncomeVerifiable")
+plot_chargedoff_loans_term_breakdown("EmploymentStatus")
+plot_chargedoff_loans_term_breakdown("IsBorrowerHomeowner")
+plot_chargedoff_loans_term_breakdown("IncomeVerifiable")
 ```
 
 ```{r, fig.width=10, fig.height=6}
 loans.completed$CreditScoreRangeLowerBucket = cut(
   loans.completed$CreditScoreRangeLower, breaks=10)
-plot_term_breakdown("CreditScoreRangeLowerBucket")
+plot_chargedoff_loans_term_breakdown("CreditScoreRangeLowerBucket")
 ```
 
 ```{r, fig.width=10, fig.height=6}
-plot_term_breakdown("IncomeRange")
+plot_chargedoff_loans_term_breakdown("IncomeRange")
 ```
 
 ```{r, fig.width=10, fig.height=6}
 loans.completed$LoanOriginalAmountBucket = cut(
   loans.completed$LoanOriginalAmount, breaks=20, dig.lab=8)
-plot_term_breakdown("LoanOriginalAmountBucket")
+plot_chargedoff_loans_term_breakdown("LoanOriginalAmountBucket")
 ```
 
 Here we see a big different in distribution of loan amounts vs loan term. This 
@@ -380,7 +377,7 @@ terms.
 ### By listing category
 
 ```{r, fig.width=10, fig.height=6}
-plot_categorical_breakdown("ListingCategory") +
+plot_completed_loans_categorical_breakdown("ListingCategory") +
   theme(axis.text.x=element_text(angle=-90,hjust=0))
 ```
 
@@ -390,7 +387,7 @@ riskiest.
 ### By borrower state
 
 ```{r, fig.width=10, fig.height=6}
-plot_categorical_breakdown("BorrowerState")
+plot_completed_loans_categorical_breakdown("BorrowerState")
 ```
 
 State does appear to affect charge-off reates, but me feeling is that it's 
@@ -399,7 +396,7 @@ likely to be caused by different demographics and types of loans.
 ### By occupation
 
 ```{r, fig.width=10, fig.height=6}
-plot_categorical_breakdown("Occupation") + 
+plot_completed_loans_categorical_breakdown("Occupation") + 
   theme(axis.text.x=element_text(angle=-90,hjust=0))
 ```
 
@@ -410,9 +407,9 @@ characteristics.
 ### By employment status, homeownership, verifiable income
 
 ```{r, fig.width=10, fig.height=6}
-plot_categorical_breakdown("EmploymentStatus")
-plot_categorical_breakdown("IsBorrowerHomeowner")
-plot_categorical_breakdown("IncomeVerifiable")
+plot_completed_loans_categorical_breakdown("EmploymentStatus")
+plot_completed_loans_categorical_breakdown("IsBorrowerHomeowner")
+plot_completed_loans_categorical_breakdown("IncomeVerifiable")
 ```
 
 Same story for these characteristics. It's hard to read into any of these 
@@ -423,7 +420,7 @@ individually.
 ```{r, fig.width=10, fig.height=6}
 loans.completed$BorrowerRateBucket = cut(
   loans.completed$BorrowerRate, breaks=10)
-plot_categorical_breakdown("BorrowerRateBucket")
+plot_completed_loans_categorical_breakdown("BorrowerRateBucket")
 ```
 
 Here we see that loans with higher rates have a higher charge off rate, which is 
@@ -434,7 +431,7 @@ expected as riskier loans would have higher rates.
 ```{r, fig.width=10, fig.height=6}
 loans.completed$BorrowerAPRBucket = cut(
   loans.completed$BorrowerAPR, breaks=10)
-plot_categorical_breakdown("BorrowerAPRBucket")
+plot_completed_loans_categorical_breakdown("BorrowerAPRBucket")
 ```
 
 # Final Plots and Summary
@@ -529,14 +526,15 @@ We also see that the distribution of charged-off loans trends to lower scores
 over time.
 
 ```{r, fig.width=10, fig.height=6}
-g_prop_by_term <- plot_categorical_breakdown("Term") +
+g_prop_by_term <- plot_completed_loans_categorical_breakdown("Term") +
   ggtitle("Completed loans broken down by term") +
   ylab("Proportion of completed loans") +
   xlab("Term (Months)")
 
 loans.completed$LoanOriginalAmountBucket <- cut(
   loans.completed$LoanOriginalAmount, breaks=10, dig.lab=8)
-g_chargedoff_prop_by_term <- plot_term_breakdown("LoanOriginalAmountBucket") + 
+g_chargedoff_prop_by_term <- 
+  plot_chargedoff_loans_term_breakdown("LoanOriginalAmountBucket") + 
   ggtitle("Charge-offs broken down by term and loan amount") +
   ylab("Proportion of charged-off loans") +
   xlab("Term (months)")

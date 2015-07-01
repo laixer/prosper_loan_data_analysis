@@ -55,10 +55,10 @@ amount_bucket_labels <- sapply(amount_breaks[-1],
        function(x) {
          sprintf("%s - %s", dollar(x - amount_bucket_width), dollar(x))
        })
-loans.completed$LoanOriginalAmountBucket <- cut(
-  loans.completed$LoanOriginalAmount, 
+loans$LoanOriginalAmountBucket <- cut(
+  loans$LoanOriginalAmount, 
   breaks=amount_breaks, 
-  labels=amount_bucket_labels,
+  labels=amount_bucket_labels, 
   dig.lab=8)
 
 str(loans)

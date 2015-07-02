@@ -364,9 +364,19 @@ plot_chargedoff_loans_term_breakdown <- function(feature) {
   
   return(ggplot(charged_off_by_term_and_feature_merged, 
                 aes_string("Term", "PropLoans", fill = feature)) +
-    geom_bar(stat = "identity"))
+    geom_bar(stat = "identity") + 
+    guides(fill=FALSE) +
+    ggtitle(feature) + 
+    theme(axis.title.x = element_blank(), 
+          axis.title.y = element_blank(),
+          plot.title = element_text(size = rel(0.75)),
+          plot.margin = unit(c(-0, 0, 0, 0), "cm")))
 }
-plot_chargedoff_loans_term_breakdown("ListingCategory")
+plot_chargedoff_loans_term_breakdown_multi <- function(features) {
+  graphs <- lapply(features, plot_chargedoff_loans_term_breakdown)
+  graphs$ncol = 3 
+  return(do.call(grid.arrange, graphs))
+}
 ```
 
 If we further break down the chargedoff loans by listing category, we don't
@@ -374,30 +384,39 @@ see anything obvious that would lead to such differences in charge off rate.
 
 What about occupation?
 
-```{r, fig.width=10, fig.height=6, echo=FALSE, cache=TRUE}
-plot_chargedoff_loans_term_breakdown("Occupation")
+```{r, fig.width=10, fig.height=6, echo=FALSE}
+loans.completed$CreditScoreRangeLowerBucket = cut(
+  loans.completed$CreditScoreRangeLower, breaks=10)
+
+plot_chargedoff_loans_term_breakdown_multi(c(
+  "ListingCategory", 
+  "Occupation", 
+  "EmploymentStatus", 
+  "IsBorrowerHomeowner", 
+  "IncomeVerifiable", 
+  "IncomeRange",
+  "LoanOriginalAmountBucket",
+  "CreditScoreRangeLowerBucket"))
+# plot_chargedoff_loans_term_breakdown("Occupation")
 ```
 
 Nothing interesting here. 
 
 ```{r, fig.width=10, fig.height=6, echo=FALSE, cache=TRUE}
-plot_chargedoff_loans_term_breakdown("EmploymentStatus")
-plot_chargedoff_loans_term_breakdown("IsBorrowerHomeowner")
-plot_chargedoff_loans_term_breakdown("IncomeVerifiable")
+# plot_chargedoff_loans_term_breakdown("EmploymentStatus")
+# plot_chargedoff_loans_term_breakdown("IsBorrowerHomeowner")
+# plot_chargedoff_loans_term_breakdown("IncomeVerifiable")
 ```
 
 ```{r, fig.width=10, fig.height=6, echo=FALSE, cache=TRUE}
-loans.completed$CreditScoreRangeLowerBucket = cut(
-  loans.completed$CreditScoreRangeLower, breaks=10)
-plot_chargedoff_loans_term_breakdown("CreditScoreRangeLowerBucket")
 ```
 
 ```{r, fig.width=10, fig.height=6, echo=FALSE, cache=TRUE}
-plot_chargedoff_loans_term_breakdown("IncomeRange")
+# plot_chargedoff_loans_term_breakdown("IncomeRange")
 ```
 
 ```{r, fig.width=10, fig.height=6, echo=FALSE, cache=TRUE}
-plot_chargedoff_loans_term_breakdown("LoanOriginalAmountBucket")
+# plot_chargedoff_loans_term_breakdown("LoanOriginalAmountBucket")
 ```
 
 Here we see a big different in distribution of loan amounts vs loan term. This 

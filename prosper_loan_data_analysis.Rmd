@@ -298,10 +298,9 @@ sets. Initially the scores skew high, but become more distributed over time
 presumably as the platform opens up (both with more variety of people coming to 
 the platform and as more sophisticated/return hungry lenders enter).
 
-## Charge-off rates for categorical variables
+## Charge-off rates
 
-Let's look at some individual characteristics and see how they affect loan 
-outcomes.
+Let's look at some loan properties and see how they affect loan outcomes.
 
 ```{r, echo=FALSE}
 library(reshape2)
@@ -342,10 +341,14 @@ difficult to draw any conclusions. Perhaps the nature of loans is different
 between shorter and longer term loans. It would be interesting to explore if 
 there any other variables that correlate with loan term.
 
+Let's plot charged-off loans by various features vs loan term. For categorical
+variables, we'll plot proportions attributed to different values of that feature
+and for continous variables we'll show a scatter plot.
+
 ```{r, fig.width=10, fig.height=6, echo=FALSE, cache=TRUE}
-# Returns a bar chart that shows proportions of loans by the given feature
-# for charged-off loans of different terms.
-plot_chargedoff_loans_term_breakdown <- function(feature) {
+# Returns a bar chart that shows proportions of loans by the given categorical 
+# feature for charged-off loans of different terms.
+plot_chargedoff_loans_term_breakdown_categorical <- function(feature) {
   charged_off_by_term <- loans.completed %>%
     filter(LoanStatus == "Chargedoff") %>%
     group_by(Term) %>%
@@ -372,21 +375,42 @@ plot_chargedoff_loans_term_breakdown <- function(feature) {
           plot.title = element_text(size = rel(0.75)),
           plot.margin = unit(c(-0, 0, 0, 0), "cm")))
 }
+
+# Returns a scatter plot of the given feature vs loan term.
+plot_chargedoff_loans_term_breakdown_continous <- function(feature) {
+  charged_off_loans <- loans.completed %>%
+    filter(LoanStatus == "Chargedoff")
+  
+  return(ggplot(charged_off_loans, 
+                aes_string("Term", feature)) +
+    geom_point(position=position_jitter(), alpha=0.1) + 
+    guides(fill=FALSE) +
+    ggtitle(feature) + 
+    theme(axis.title.x = element_blank(), 
+          axis.title.y = element_blank(),
+          plot.title = element_text(size = rel(0.75)),
+          plot.margin = unit(c(-0, 0, 0, 0), "cm")))
+}
+
+# Returns a grid of plots showing charged off loans broken down by given 
+# features.
 plot_chargedoff_loans_term_breakdown_multi <- function(features) {
-  graphs <- lapply(features, plot_chargedoff_loans_term_breakdown)
+  graphs <- lapply(features, function(x) 
+    if(is.factor(loans.completed[[x]])) 
+      plot_chargedoff_loans_term_breakdown_categorical(x) 
+    else 
+      plot_chargedoff_loans_term_breakdown_continous(x))
   graphs$ncol = 3 
   return(do.call(grid.arrange, graphs))
 }
 ```
 
-If we further break down the chargedoff loans by listing category, we don't
-see anything obvious that would lead to such differences in charge off rate.
-
-What about occupation?
-
-```{r, fig.width=10, fig.height=6, echo=FALSE}
+```{r, fig.width=10, fig.height=20, echo=FALSE, warning=FALSE}
 loans.completed$CreditScoreRangeLowerBucket = cut(
   loans.completed$CreditScoreRangeLower, breaks=10)
+
+loans.completed$CreditScoreRangeUpperBucket = cut(
+  loans.completed$CreditScoreRangeUpper, breaks=10)
 
 plot_chargedoff_loans_term_breakdown_multi(c(
   "ListingCategory", 
@@ -395,33 +419,35 @@ plot_chargedoff_loans_term_breakdown_multi(c(
   "IsBorrowerHomeowner", 
   "IncomeVerifiable", 
   "IncomeRange",
+  "LoanOriginalAmount",
   "LoanOriginalAmountBucket",
-  "CreditScoreRangeLowerBucket"))
-# plot_chargedoff_loans_term_breakdown("Occupation")
+  "CreditScoreRangeLowerBucket",
+  "CreditScoreRangeLower",
+  "CreditScoreRangeUpperBucket",
+  "CreditScoreRangeUpper",
+  "BorrowerAPR",
+  "CurrentCreditLines",
+  "CurrentDelinquencies",
+  "RevolvingCreditBalance",
+  "BankcardUtilization",
+  "TradesNeverDelinquent..percentage.",
+  "DebtToIncomeRatio", # Some data missing
+  "StatedMonthlyIncome",
+  "MonthlyLoanPayment",
+  "Recommendations",
+  "Investors"))
 ```
 
-Nothing interesting here. 
+From the scatter plots, we notice that the number of 12-month loans is 
+relatively low compared to 36 and 60 months loans. Given the low number of 12 
+month loans, focusing on the difference between 36 and 60 month loans is more
+meaningful.
 
-```{r, fig.width=10, fig.height=6, echo=FALSE, cache=TRUE}
-# plot_chargedoff_loans_term_breakdown("EmploymentStatus")
-# plot_chargedoff_loans_term_breakdown("IsBorrowerHomeowner")
-# plot_chargedoff_loans_term_breakdown("IncomeVerifiable")
-```
-
-```{r, fig.width=10, fig.height=6, echo=FALSE, cache=TRUE}
-```
-
-```{r, fig.width=10, fig.height=6, echo=FALSE, cache=TRUE}
-# plot_chargedoff_loans_term_breakdown("IncomeRange")
-```
-
-```{r, fig.width=10, fig.height=6, echo=FALSE, cache=TRUE}
-# plot_chargedoff_loans_term_breakdown("LoanOriginalAmountBucket")
-```
-
-Here we see a big different in distribution of loan amounts vs loan term. This 
-could explain some of the differences in the charge off rates between different 
-terms.
+The most interesting plot above, in my eyes, is the scatter plot of loan 
+amounts. For the 36-month loans, there's a heavy concentration of loans at $5000
+and below. One potential explanation for the difference in charge-off rates is
+the difference in the distribution of loan amounts. Loans for higher amounts may
+be more likely to be charged off.
 
 ### By listing category
 
@@ -474,14 +500,6 @@ plot_completed_loans_categorical_breakdown("BorrowerRateBucket")
 
 Here we see that loans with higher rates have a higher charge off rate, which is 
 expected as riskier loans would have higher rates.
-
-### By borrower APR
-
-```{r, fig.width=10, fig.height=6, echo=FALSE, cache=TRUE}
-loans.completed$BorrowerAPRBucket = cut(
-  loans.completed$BorrowerAPR, breaks=10)
-plot_completed_loans_categorical_breakdown("BorrowerAPRBucket")
-```
 
 # Final Plots and Summary
 
@@ -578,7 +596,7 @@ which might lead to changes in how loans are classified.
 We also see that the distribution of charged-off loans trends to lower scores 
 over time.
 
-```{r, fig.width=10, fig.height=6, echo=FALSE, cache=TRUE}
+```{r, fig.width=10, fig.height=8, echo=FALSE, cache=TRUE}
 g_prop_by_term <- plot_completed_loans_categorical_breakdown("Term") +
   ggtitle("Completed loans broken down by term") +
   ylab("Proportion of completed loans") +
@@ -586,7 +604,7 @@ g_prop_by_term <- plot_completed_loans_categorical_breakdown("Term") +
   guides(fill=guide_legend(title="Loan Outcome"))
 
 g_chargedoff_prop_by_term <- 
-  plot_chargedoff_loans_term_breakdown("LoanOriginalAmountBucket") + 
+  plot_chargedoff_loans_term_breakdown_categorical("LoanOriginalAmountBucket") + 
   ggtitle("Charge-offs broken down by term and loan amount") +
   ylab("Proportion of charged-off loans") +
   xlab("Term (months)") +
